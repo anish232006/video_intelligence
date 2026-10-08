@@ -1,0 +1,82 @@
+# Multi-Stream Video Intelligence Configuration
+# Adjust these settings based on your hardware
+
+# ─── Device ───────────────────────────────────────────
+device: "cuda"          # "cuda" or "cpu" — auto-falls back to cpu
+use_fp16: true          # Use half-precision on GPU
+
+# ─── Video Sampling ───────────────────────────────────
+sample_fps: 2           # Frames per second to sample (1-5)
+min_fps: 1
+max_fps: 5
+
+# ─── Object Detection ─────────────────────────────────
+yolo_model: "yolov8n.pt"          # nano for speed on 4GB GPU
+confidence_threshold: 0.25
+image_size: 640
+detection_batch_size: 1           # Process 1 frame at a time on 4GB
+
+# Priority detection classes (COCO class names)
+target_classes:
+  - person
+  - car
+  - bicycle
+  - motorcycle
+  - bus
+  - truck
+  - backpack
+  - handbag
+  - suitcase
+
+# ─── Tracking ─────────────────────────────────────────
+tracker_type: "bytetrack"
+max_disappeared: 30     # frames before track is dropped
+
+# ─── Crop Extraction ──────────────────────────────────
+max_crops_per_track: 5
+min_crop_size: 32       # minimum pixel dimension
+crop_padding: 10        # pixels to pad around bbox
+
+# ─── CLIP Embeddings ──────────────────────────────────
+clip_model: "ViT-B-32"
+clip_pretrained: "openai"
+clip_batch_size: 32
+embedding_dim: 512
+
+# ─── FAISS ────────────────────────────────────────────
+faiss_index_type: "FlatIP"  # Inner product (cosine with normalized vectors)
+top_k: 20               # candidates to retrieve from FAISS
+rerank_top_k: 10        # final results after reranking
+
+# ─── Query ────────────────────────────────────────────
+llm_provider: "groq"  # "groq", "gemini", "openai", or "rule_based"
+groq_model: "qwen/qwen3.8-27b"
+query_timeout_seconds: 30
+
+# ─── VLM Verification (optional, disabled by default) ─
+use_vlm_verification: false
+vqa_top_k: 3
+
+# ─── Paths ────────────────────────────────────────────
+data_dir: "data"
+videos_dir: "data/videos"
+crops_dir: "data/crops"
+evidence_dir: "data/evidence"
+clips_dir: "data/evidence/clips"
+index_dir: "data/index"
+db_path: "data/app.db"
+faiss_index_path: "data/index/faiss.index"
+faiss_meta_path: "data/index/faiss_meta.json"
+
+# ─── Evidence Clips ───────────────────────────────────
+evidence_clip_duration: 10   # seconds (5 before + 5 after)
+evidence_clip_before: 5
+evidence_clip_after: 5
+
+# ─── Re-ID (stretch feature) ──────────────────────────
+enable_cross_camera_reid: false
+reid_similarity_threshold: 0.75
+reid_max_time_gap_seconds: 300  # 5 minutes
+
+# ─── Evaluation ───────────────────────────────────────
+evaluation_queries_path: "evaluation/queries.json"

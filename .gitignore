@@ -1,0 +1,25 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+env/
+venv/
+.pytest_cache/
+
+# Data artifacts
+data/crops/*
+data/evidence/clips/*
+data/index/*
+data/*.db
+data/videos/*
+!data/**/.gitkeep
+
+# Weights
+*.pt
+*.safetensors
+*.bin

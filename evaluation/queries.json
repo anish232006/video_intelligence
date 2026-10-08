@@ -1,0 +1,26 @@
+[
+  {
+    "query": "Find the red car at the main gate",
+    "expected_camera": "CAM_01",
+    "expected_time_start": 60,
+    "expected_time_end": 120
+  },
+  {
+    "query": "Show me people near the entrance",
+    "expected_camera": "CAM_01",
+    "expected_time_start": null,
+    "expected_time_end": null
+  },
+  {
+    "query": "Find the white car on camera 2",
+    "expected_camera": "CAM_02",
+    "expected_time_start": null,
+    "expected_time_end": null
+  },
+  {
+    "query": "Did someone carrying a backpack enter?",
+    "expected_camera": null,
+    "expected_time_start": null,
+    "expected_time_end": null
+  }
+]
