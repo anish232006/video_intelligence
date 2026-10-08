@@ -744,9 +744,12 @@ def _render_results(results: list, show_clips: bool):
 
             with col_footage:
                 st.markdown("**🎬 Evidence Footage**")
-                if video_path and Path(video_path).exists():
+                vpath_obj = Path(video_path)
+                if not vpath_obj.is_absolute():
+                    vpath_obj = Path(__file__).parent / video_path
+                if video_path and vpath_obj.exists():
                     start_sec = max(0, int(result.timestamp - 2))
-                    st.video(video_path, start_time=start_sec)
+                    st.video(str(vpath_obj), start_time=start_sec)
                     st.caption(f"▶️ CCTV footage queued to **{format_timestamp(result.timestamp)}** (playhead -2s offset)")
 
                     # Isolated 10s Clip Option
@@ -825,9 +828,13 @@ def _render_camera_feed_card(cam: dict, expanded: bool = False):
     </div>
     """, unsafe_allow_html=True)
 
-    if vpath and Path(vpath).exists():
-        st.video(vpath)
-        st.caption(f"📁 `{Path(vpath).name}` | 📐 {cam.get('width', 0)}×{cam.get('height', 0)} @ {cam.get('fps', 0):.1f}fps | ⏱️ {cam.get('duration', 0):.1f}s ({cam.get('frame_count', 0):,} frames)")
+    vpath_obj = Path(vpath)
+    if not vpath_obj.is_absolute():
+        vpath_obj = Path(__file__).parent / vpath
+
+    if vpath and vpath_obj.exists():
+        st.video(str(vpath_obj))
+        st.caption(f"📁 `{vpath_obj.name}` | 📐 {cam.get('width', 0)}×{cam.get('height', 0)} @ {cam.get('fps', 0):.1f}fps | ⏱️ {cam.get('duration', 0):.1f}s ({cam.get('frame_count', 0):,} frames)")
     else:
         st.error(f"Video file missing: {vpath}")
 
@@ -954,9 +961,12 @@ def render_cameras_tab():
                             pass
                     st.markdown(f"⏱️ **Passage:** `{format_timestamp(stop['time'])}` - `{format_timestamp(stop['last_time'])}`")
                     st.markdown(f"🔗 **Match:** `{stop['confidence']}`")
-                    if stop['video_path'] and Path(stop['video_path']).exists():
+                    vp_obj = Path(stop['video_path'])
+                    if not vp_obj.is_absolute():
+                        vp_obj = Path(__file__).parent / stop['video_path']
+                    if stop['video_path'] and vp_obj.exists():
                         start_at = max(0, int(stop['time'] - 1.5))
-                        st.video(stop['video_path'], start_time=start_at)
+                        st.video(str(vp_obj), start_time=start_at)
                         st.caption(f"▶️ Queued @ {format_timestamp(stop['time'])}")
 
     with tab_add:

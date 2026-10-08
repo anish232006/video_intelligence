@@ -144,7 +144,25 @@ def generate_camera_video(cam_id: str, cam_name: str, bg_path: Path, sprite, mas
         out.write(frame)
         
     out.release()
-    print(f"  Finished {cam_id}: {out_path} ({total_frames} frames)")
+
+    # Transcode to browser-native H.264 (avc1, yuv420p)
+    try:
+        import imageio_ffmpeg
+        import subprocess
+        import shutil
+        ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+        tmp_h264 = out_path.with_name("h264_" + out_path.name)
+        subprocess.run([
+            ffmpeg_exe, "-y", "-i", str(out_path),
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-preset", "fast", "-crf", "22",
+            str(tmp_h264)
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
+        shutil.move(str(tmp_h264), str(out_path))
+    except Exception as e:
+        print(f"  Note: H.264 post-transcode skipped: {e}")
+
+    print(f"  Finished {cam_id}: {out_path} ({total_frames} frames, H.264)")
 
 
 # ── Trajectories for each camera ──────────────────────────────────────────────

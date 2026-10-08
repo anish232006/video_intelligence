@@ -132,15 +132,16 @@ class RetrievalPipeline:
         # ── Step 5: FAISS search ──────────────────────────────────────────
         store = get_store()
         if store.is_empty():
-            logger.warning("FAISS index is empty")
-            return [], clarification_needed
+            logger.warning("FAISS index is empty — falling back to database tracks")
+            return self._fallback_results(filtered_tracks, top_k), clarification_needed
 
         # Search the entire index so tracks across all cameras are evaluated
         search_k = store.total_vectors
         faiss_scores, faiss_indices = store.search(text_emb, top_k=search_k)
 
         if not faiss_indices:
-            return [], clarification_needed
+            logger.warning("FAISS returned no indices — falling back to database tracks")
+            return self._fallback_results(filtered_tracks, top_k), clarification_needed
 
         # ── Step 6: Rerank candidates ─────────────────────────────────────
         candidates = []

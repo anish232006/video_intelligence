@@ -21,26 +21,28 @@ from src.config import cfg
 logger = logging.getLogger(__name__)
 
 # Check FFmpeg availability once at module load
-_FFMPEG_AVAILABLE: Optional[bool] = None
+_FFMPEG_BIN: Optional[str] = None
+
+
+def _get_ffmpeg_bin() -> Optional[str]:
+    global _FFMPEG_BIN
+    if _FFMPEG_BIN is None:
+        try:
+            import imageio_ffmpeg
+            _FFMPEG_BIN = imageio_ffmpeg.get_ffmpeg_exe()
+            logger.info("FFmpeg detected via imageio_ffmpeg: %s", _FFMPEG_BIN)
+        except Exception:
+            if shutil.which("ffmpeg"):
+                _FFMPEG_BIN = "ffmpeg"
+                logger.info("FFmpeg detected via system PATH")
+            else:
+                _FFMPEG_BIN = ""
+                logger.warning("FFmpeg not found — falling back to OpenCV")
+    return _FFMPEG_BIN if _FFMPEG_BIN else None
 
 
 def _check_ffmpeg() -> bool:
-    global _FFMPEG_AVAILABLE
-    if _FFMPEG_AVAILABLE is None:
-        try:
-            result = subprocess.run(
-                ["ffmpeg", "-version"],
-                capture_output=True,
-                timeout=5,
-            )
-            _FFMPEG_AVAILABLE = result.returncode == 0
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            _FFMPEG_AVAILABLE = False
-        if _FFMPEG_AVAILABLE:
-            logger.info("FFmpeg detected — evidence clips enabled")
-        else:
-            logger.warning("FFmpeg not found — evidence clips disabled, thumbnails only")
-    return _FFMPEG_AVAILABLE
+    return _get_ffmpeg_bin() is not None
 
 
 def generate_evidence_clip(
@@ -91,12 +93,13 @@ def generate_evidence_clip(
 
     cfg.clips_dir.mkdir(parents=True, exist_ok=True)
 
-    if not _check_ffmpeg():
+    ffmpeg_bin = _get_ffmpeg_bin()
+    if not ffmpeg_bin:
         # Fallback to OpenCV VideoWriter
         return _generate_clip_opencv(video_path_obj, start, duration, clip_path)
 
     cmd = [
-        "ffmpeg",
+        ffmpeg_bin,
         "-y",
         "-ss", str(start),
         "-i", str(video_path_obj),

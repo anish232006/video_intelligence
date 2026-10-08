@@ -187,8 +187,21 @@ class FAISSStore:
         logger.info("FAISS: Removed camera %s, %d vectors remain",
                     camera_id, self._index.ntotal)
 
+    def _check_disk_reload(self) -> None:
+        """Reload index if disk file exists and has newer modification time or if index is empty."""
+        if not self.index_path.exists() or not self.meta_path.exists():
+            return
+        try:
+            mtime = self.index_path.stat().st_mtime
+            if not hasattr(self, "_last_mtime") or self._last_mtime != mtime or self._index is None or self._index.ntotal == 0:
+                self.load_or_create()
+                self._last_mtime = mtime
+        except Exception as e:
+            logger.debug("Error checking FAISS disk reload: %s", e)
+
     @property
     def total_vectors(self) -> int:
+        self._check_disk_reload()
         return self._index.ntotal if self._index is not None else 0
 
     def is_empty(self) -> bool:
@@ -199,11 +212,13 @@ class FAISSStore:
 _store: Optional[FAISSStore] = None
 
 
-def get_store() -> FAISSStore:
+def get_store(reload: bool = False) -> FAISSStore:
     global _store
-    if _store is None:
+    if _store is None or reload:
         _store = FAISSStore()
         _store.load_or_create()
+    else:
+        _store._check_disk_reload()
     return _store
 
 
