@@ -50,10 +50,10 @@ def clean_state():
 def register_all_cameras():
     print("\n--- 2. Registering 4 Sequential Cameras ---")
     cams = [
-        ("CAM_01", "West Approach Highway", "data/videos/camera_01.mp4", "Real CCTV surveillance feed of highway approach, vehicles, and pedestrians"),
-        ("CAM_02", "Central Junction Crossing", "data/videos/camera_02.mp4", "Real CCTV surveillance feed of central urban intersection and cross-traffic"),
-        ("CAM_03", "Commercial Promenade Corridor", "data/videos/camera_03.mp4", "Real CCTV surveillance feed of market promenade with continuous pedestrian and vehicle movement"),
-        ("CAM_04", "South Perimeter Checkpoint", "data/videos/camera_04.mp4", "Real CCTV surveillance feed of perimeter outbound traffic stream and vehicles"),
+        ("CAM_01", "CAM 01 - North Highway Inbound", "data/videos/camera_01.mp4", "Wide-angle overview of highway sector with traffic, trucks, cars, and pedestrians"),
+        ("CAM_02", "CAM 02 - Gate 2 West Checkpoint", "data/videos/camera_02.mp4", "Telephoto zoomed reverse-angle checkpoint feed showing vehicles passing barrier lane"),
+        ("CAM_03", "CAM 03 - East Commercial Walkway", "data/videos/camera_03.mp4", "Commercial pedestrian corridor view showing pedestrians, shoppers, and walkway movement"),
+        ("CAM_04", "CAM 04 - Metro Central Intersection", "data/videos/camera_04.mp4", "High-contrast IR monochrome surveillance feed of central intersection cross-traffic"),
     ]
     for cid, name, vpath, desc in cams:
         info = register_video(cid, name, vpath, desc)
