@@ -724,18 +724,23 @@ def _render_results(results: list, show_clips: bool):
 
                 # Cross-camera ReID
                 if cfg.enable_cross_camera_reid:
-                    if st.button(f"🔗 Find cross-camera matches", key=f"reid_{i}_{result.track_db_id}"):
-                        from src.reid.cross_camera import find_cross_camera_matches
-                        matches = find_cross_camera_matches(result.track_db_id)
-                        if matches:
-                            st.markdown("**Possible same entity on other cameras:**")
-                            for m in matches:
-                                st.markdown(
-                                    f"- {m.camera_b} at {format_timestamp(m.time_b)} "
-                                    f"({m.confidence_label} confidence, sim={m.similarity:.2f})"
-                                )
-                        else:
-                            st.info("No cross-camera matches found.")
+                    from src.reid.cross_camera import find_cross_camera_matches
+                    matches = find_cross_camera_matches(result.track_db_id)
+                    if matches:
+                        st.markdown("**🛰️ Re-Identified Across Other Cameras:**")
+                        for m in matches:
+                            cam_b_info = db.get_camera(m.camera_b)
+                            cname = cam_b_info['name'] if cam_b_info else m.camera_b
+                            st.markdown(
+                                f"<div style='background:rgba(59,130,246,0.12);border-left:3px solid #3b82f6;padding:6px 10px;margin-bottom:6px;border-radius:4px;font-size:0.8rem;'>"
+                                f"<strong>{m.camera_b}</strong> — {cname}<br/>"
+                                f"⏱️ <code>{format_timestamp(m.time_b)}</code> ({m.time_b:.1f}s) &nbsp;|&nbsp; "
+                                f"<span style='color:#10b981;font-weight:600;'>{m.confidence_label} Match ({int(m.similarity*100)}%)</span>"
+                                f"</div>",
+                                unsafe_allow_html=True
+                            )
+                    else:
+                        st.caption("ℹ️ No cross-camera matches found for this track.")
 
             with col_footage:
                 st.markdown("**🎬 Evidence Footage**")
@@ -830,8 +835,9 @@ def _render_camera_feed_card(cam: dict, expanded: bool = False):
 def render_cameras_tab():
     st.markdown("### 📹 CCTV Footage & Camera Feeds")
 
-    tab_watch, tab_add, tab_manage = st.tabs([
+    tab_watch, tab_sequence, tab_add, tab_manage = st.tabs([
         "📺 Live / Uploaded Footage",
+        "🛣️ Sequential Multi-Cam Tracking",
         "➕ Upload & Add Camera",
         "📋 Camera Inventory & Stats"
     ])
@@ -861,6 +867,97 @@ def render_cameras_tab():
                 selected_cam_key = st.selectbox("Select Camera Stream to View:", list(cam_choices.keys()))
                 if selected_cam_key:
                     _render_camera_feed_card(cam_choices[selected_cam_key], expanded=True)
+
+    with tab_sequence:
+        st.markdown("#### 🛣️ Sequential Multi-Camera Vehicle Tracking Journey")
+        st.caption("Traces a target entity chronologically as it traverses through successive camera zones (Cam A ➔ Cam B ➔ Cam C ➔ Cam D).")
+
+        all_tracks = db.get_all_tracks()
+        if not all_tracks:
+            st.info("No indexed tracks available. Index the cameras first.")
+        else:
+            track_options = {
+                f"Track #{t['id']} — {t.get('dominant_color', '').capitalize()} {t['class_name'].capitalize()} (Origin: {t['camera_id']} @ {t['first_seen']:.1f}s)": t
+                for t in all_tracks
+            }
+            selected_track_str = st.selectbox("Select Target Entity to Track Across Streams:", list(track_options.keys()))
+            selected_track = track_options[selected_track_str]
+
+            from src.reid.cross_camera import find_cross_camera_matches
+            matches = find_cross_camera_matches(selected_track["id"], max_results=10)
+
+            cams_dict = {c["camera_id"]: c for c in db.get_all_cameras()}
+            origin_cam = cams_dict.get(selected_track["camera_id"], {})
+
+            journey = [{
+                "camera_id": selected_track["camera_id"],
+                "camera_name": origin_cam.get("name", selected_track["camera_id"]),
+                "time": selected_track["first_seen"],
+                "last_time": selected_track["last_seen"],
+                "class_name": selected_track["class_name"],
+                "color": selected_track.get("dominant_color", "unknown"),
+                "crop_path": selected_track.get("best_crop", ""),
+                "video_path": origin_cam.get("video_path", ""),
+                "similarity": 1.0,
+                "confidence": "Origin Detection"
+            }]
+
+            for m in matches:
+                m_track = db.get_track_by_db_id(m.track_b_id)
+                m_cam = cams_dict.get(m.camera_b, {})
+                if m_track and m_cam:
+                    journey.append({
+                        "camera_id": m.camera_b,
+                        "camera_name": m_cam.get("name", m.camera_b),
+                        "time": m.time_b,
+                        "last_time": m_track.get("last_seen", m.time_b),
+                        "class_name": m_track.get("class_name", selected_track["class_name"]),
+                        "color": m_track.get("dominant_color", selected_track.get("dominant_color", "")),
+                        "crop_path": m_track.get("best_crop", ""),
+                        "video_path": m_cam.get("video_path", ""),
+                        "similarity": m.similarity,
+                        "confidence": f"{m.confidence_label} ({int(m.similarity * 100)}%)"
+                    })
+
+            # Sort journey chronologically by camera_id
+            journey.sort(key=lambda j: j["camera_id"])
+
+            # Render visual pathway banner
+            timeline_items = []
+            for j in journey:
+                timeline_items.append(
+                    f"<span style='color:#60a5fa;font-weight:700;'>{j['camera_id']}</span> "
+                    f"<span style='color:#94a3b8;'>({j['camera_name']})</span> "
+                    f"<code>{format_timestamp(j['time'])}</code>"
+                )
+            timeline_html = " <span style='color:#10b981;font-size:1.1rem;margin:0 8px;'>➔</span> ".join(timeline_items)
+            st.markdown(
+                f"<div style='background:rgba(15,23,42,0.85);border:1px solid #1e3a5f;border-radius:10px;padding:14px 18px;margin-bottom:20px;'>"
+                f"<div style='font-size:0.75rem;color:#06b6d4;font-weight:600;margin-bottom:6px;text-transform:uppercase;'>Chained Cross-Camera Pathway</div>"
+                f"<div style='font-size:0.95rem;display:flex;flex-wrap:wrap;align-items:center;'>{timeline_html}</div>"
+                f"</div>",
+                unsafe_allow_html=True
+            )
+
+            # Render 4 camera cards with synchronized video players
+            cols = st.columns(min(len(journey), 4))
+            for idx, stop in enumerate(journey):
+                col = cols[idx % len(cols)]
+                with col:
+                    st.markdown(f"**Step {idx+1}: {stop['camera_id']}**")
+                    st.caption(f"{stop['camera_name']}")
+                    if stop['crop_path'] and Path(stop['crop_path']).exists():
+                        try:
+                            cimg = Image.open(stop['crop_path'])
+                            st.image(cimg, caption=f"Tracked: {stop['color'].capitalize()} {stop['class_name']}", use_container_width=True)
+                        except Exception:
+                            pass
+                    st.markdown(f"⏱️ **Passage:** `{format_timestamp(stop['time'])}` - `{format_timestamp(stop['last_time'])}`")
+                    st.markdown(f"🔗 **Match:** `{stop['confidence']}`")
+                    if stop['video_path'] and Path(stop['video_path']).exists():
+                        start_at = max(0, int(stop['time'] - 1.5))
+                        st.video(stop['video_path'], start_time=start_at)
+                        st.caption(f"▶️ Queued @ {format_timestamp(stop['time'])}")
 
     with tab_add:
         st.markdown("#### ➕ Register a new camera video")

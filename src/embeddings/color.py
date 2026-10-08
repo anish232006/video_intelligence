@@ -16,38 +16,44 @@ logger = logging.getLogger(__name__)
 
 # HSV color ranges: (lower_hsv, upper_hsv, name)
 # Hue is 0-179 in OpenCV, Saturation 0-255, Value 0-255
+# HSV color ranges: (lower_hsv, upper_hsv, name)
 COLOR_RANGES = [
-    ((0, 100, 100),   (10, 255, 255),   "red"),
-    ((160, 100, 100), (179, 255, 255),  "red"),   # red wraps around
-    ((10, 100, 100),  (22, 255, 255),   "orange"),
-    ((22, 100, 100),  (38, 255, 255),   "yellow"),
-    ((38, 80, 80),    (85, 255, 255),   "green"),
-    ((85, 80, 80),    (130, 255, 255),  "blue"),
-    ((130, 80, 80),   (160, 255, 255),  "purple"),
-    ((0, 0, 180),     (179, 30, 255),   "white"),
-    ((0, 0, 0),       (179, 255, 50),   "black"),
-    ((0, 0, 50),      (179, 50, 180),   "gray"),
-    ((10, 100, 50),   (22, 200, 200),   "brown"),
+    ((0, 70, 60),     (12, 255, 255),   "red"),
+    ((165, 70, 60),   (179, 255, 255),  "red"),   # red wraps around
+    ((12, 70, 60),    (25, 255, 255),   "orange"),
+    ((25, 70, 60),    (38, 255, 255),   "yellow"),
+    ((38, 60, 60),    (85, 255, 255),   "green"),
+    ((85, 60, 60),    (130, 255, 255),  "blue"),
+    ((130, 60, 60),   (165, 255, 255),  "purple"),
+    ((0, 0, 190),     (179, 30, 255),   "white"),
+    ((0, 0, 0),       (179, 255, 45),   "black"),
+    ((0, 0, 45),      (179, 45, 190),   "gray"),
+    ((10, 80, 40),    (25, 180, 160),   "brown"),
 ]
+
+CHROMATIC_COLORS = {"red", "orange", "yellow", "green", "blue", "purple"}
 
 
 def estimate_dominant_color(image: np.ndarray, top_k: int = 1) -> Optional[str]:
     """
     Estimate the dominant color of a BGR image crop.
-
-    Args:
-        image: BGR numpy array
-        top_k: Return top_k most dominant colors (returns the first)
-
-    Returns:
-        Color name string or None if estimation fails.
+    Focuses on central area and prioritizes chromatic object color over background tarmac.
     """
     if image is None or image.size == 0:
         return None
 
     try:
+        # Focus on central 75% of crop to reduce surrounding road tarmac
+        h, w = image.shape[:2]
+        if h > 20 and w > 20:
+            margin_y = int(h * 0.12)
+            margin_x = int(w * 0.12)
+            center_crop = image[margin_y:h-margin_y, margin_x:w-margin_x]
+        else:
+            center_crop = image
+
         # Resize for speed
-        small = cv2.resize(image, (64, 64), interpolation=cv2.INTER_AREA)
+        small = cv2.resize(center_crop, (64, 64), interpolation=cv2.INTER_AREA)
         hsv = cv2.cvtColor(small, cv2.COLOR_BGR2HSV)
 
         color_counts: dict = {}
@@ -57,19 +63,24 @@ def estimate_dominant_color(image: np.ndarray, top_k: int = 1) -> Optional[str]:
             upper_arr = np.array(upper, dtype=np.uint8)
             mask = cv2.inRange(hsv, lower_arr, upper_arr)
             count = int(mask.sum() / 255)
-            if name in color_counts:
-                color_counts[name] += count
-            else:
-                color_counts[name] = count
+            color_counts[name] = color_counts.get(name, 0) + count
 
         if not color_counts:
             return None
 
-        # Get dominant
-        dominant = max(color_counts, key=color_counts.get)
         total_pixels = small.shape[0] * small.shape[1]
 
-        # If no color has at least 10% coverage, label as "mixed"
+        # Prioritize chromatic colors (e.g. red, blue, green) over neutral tarmac (gray, black)
+        # if the chromatic color covers at least 10% of the object body
+        chromatic_candidates = {
+            k: v for k, v in color_counts.items()
+            if k in CHROMATIC_COLORS and v >= total_pixels * 0.10
+        }
+        if chromatic_candidates:
+            return max(chromatic_candidates, key=chromatic_candidates.get)
+
+        # Fallback to absolute highest count
+        dominant = max(color_counts, key=color_counts.get)
         if color_counts[dominant] < total_pixels * 0.10:
             return None
 

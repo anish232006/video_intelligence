@@ -73,9 +73,9 @@ evidence_clip_duration: 10   # seconds (5 before + 5 after)
 evidence_clip_before: 5
 evidence_clip_after: 5
 
-# ─── Re-ID (stretch feature) ──────────────────────────
-enable_cross_camera_reid: false
-reid_similarity_threshold: 0.75
+# ─── Re-ID (cross camera tracking) ────────────────────
+enable_cross_camera_reid: true
+reid_similarity_threshold: 0.70
 reid_max_time_gap_seconds: 300  # 5 minutes
 
 # ─── Evaluation ───────────────────────────────────────

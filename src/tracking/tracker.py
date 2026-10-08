@@ -58,7 +58,7 @@ class SimpleIoUTracker:
         self.next_id = 1
 
     @staticmethod
-    def _iou(a: Tuple, b: Tuple) -> float:
+    def _match_score(a: Tuple, b: Tuple) -> float:
         ax1, ay1, ax2, ay2 = a
         bx1, by1, bx2, by2 = b
         ix1 = max(ax1, bx1)
@@ -71,7 +71,19 @@ class SimpleIoUTracker:
         area_a = (ax2 - ax1) * (ay2 - ay1)
         area_b = (bx2 - bx1) * (by2 - by1)
         union = area_a + area_b - inter
-        return inter / union if union > 0 else 0.0
+        iou = inter / union if union > 0 else 0.0
+        if iou > 0.05:
+            return iou
+        # If low/no IoU between sampled frames (e.g. at 2 FPS), check center distance
+        acx, acy = (ax1 + ax2) / 2, (ay1 + ay2) / 2
+        bcx, bcy = (bx1 + bx2) / 2, (by1 + by2) / 2
+        dist = ((acx - bcx) ** 2 + (acy - bcy) ** 2) ** 0.5
+        diag_a = ((ax2 - ax1) ** 2 + (ay2 - ay1) ** 2) ** 0.5
+        diag_b = ((bx2 - bx1) ** 2 + (by2 - by1) ** 2) ** 0.5
+        max_diag = max(diag_a, diag_b, 1.0)
+        if dist < max_diag * 2.2:
+            return 0.25 * (1.0 - dist / (max_diag * 2.2))
+        return 0.0
 
     def update(self, detections: List[Detection],
                frame_number: int, timestamp: float) -> List[Tuple[int, Detection]]:
@@ -98,7 +110,7 @@ class SimpleIoUTracker:
         # Try to match detections to existing tracks
         for det_idx in list(unmatched_dets):
             det = detections[det_idx]
-            best_iou = self.iou_threshold
+            best_score = 0.04
             best_tid = None
 
             for tid, track in self.tracks.items():
@@ -108,9 +120,9 @@ class SimpleIoUTracker:
                     continue
                 if track.last_bbox is None:
                     continue
-                iou = self._iou(track.last_bbox, det.bbox)
-                if iou > best_iou:
-                    best_iou = iou
+                score = self._match_score(track.last_bbox, det.bbox)
+                if score > best_score:
+                    best_score = score
                     best_tid = tid
 
             if best_tid is not None:
