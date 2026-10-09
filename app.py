@@ -540,9 +540,9 @@ def render_search_tab():
     st.markdown('<div style="font-size:0.75rem;font-weight:600;color:#00f2fe;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">QUICK AUDIT PRESETS</div>', unsafe_allow_html=True)
     presets = [
         "Find all cars in the footages",
-        "Show persons crossing the corridor",
-        "Locate blue truck",
-        "Find motorcycles detected on camera",
+        "Show persons detected on cameras",
+        "Locate motorcycles",
+        "Find bicycles",
         "Where was the car seen across cameras?",
     ]
     p_cols = st.columns(len(presets))
@@ -698,7 +698,7 @@ def render_cameras_grid_tab():
             <div style="font-size:0.8rem;color:#94a3b8;">Concurrent surveillance streams with telemetry, object density, and OSD timecodes.</div>
         </div>
         <div style="font-family:'JetBrains Mono';font-size:0.75rem;color:#00f2fe;background:rgba(0,242,254,0.1);padding:4px 10px;border-radius:8px;border:1px solid rgba(0,242,254,0.3);">
-            ● QUAD MULTI-VIEW ACTIVE
+            ● {len(cameras)}-STREAM CCTV GRID ACTIVE
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -708,35 +708,62 @@ def render_cameras_grid_tab():
         st.info("No active camera streams configured.")
         return
 
-    # Render high-tech 2x2 grid
-    for i in range(0, len(cameras), 2):
-        cols = st.columns(2)
-        for j in range(2):
-            if i + j < len(cameras):
-                cam = cameras[i + j]
-                tracks = db.get_tracks_for_camera(cam['camera_id'])
-                with cols[j]:
-                    st.markdown(f"""
-                    <div class="monitor-card">
-                        <div class="monitor-bar">
-                            <span class="monitor-title">🔴 {cam['camera_id']} // {cam['name']}</span>
-                            <span style="font-size:0.72rem;font-family:'JetBrains Mono';color:#10b981;font-weight:700;">
-                                {len(tracks)} TRACKED ENTITIES
-                            </span>
-                        </div>
+    # If 3 cameras, render all 3 in a clean balanced 3-column row
+    if len(cameras) == 3:
+        cols = st.columns(3)
+        for idx, cam in enumerate(cameras):
+            tracks = db.get_tracks_for_camera(cam['camera_id'])
+            with cols[idx]:
+                st.markdown(f"""
+                <div class="monitor-card">
+                    <div class="monitor-bar">
+                        <span class="monitor-title">🔴 {cam['camera_id']} // {cam['name']}</span>
+                        <span style="font-size:0.72rem;font-family:'JetBrains Mono';color:#10b981;font-weight:700;">
+                            {len(tracks)} TRACKED ENTITIES
+                        </span>
                     </div>
-                    """, unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
 
-                    vpath = cam.get("video_path", "")
-                    vpath_obj = Path(vpath)
-                    if not vpath_obj.is_absolute():
-                        vpath_obj = Path(__file__).parent / vpath
+                vpath = cam.get("video_path", "")
+                vpath_obj = Path(vpath)
+                if not vpath_obj.is_absolute():
+                    vpath_obj = Path(__file__).parent / vpath
 
-                    if vpath and vpath_obj.exists():
-                        st.video(str(vpath_obj))
-                        st.caption(f"📐 {cam.get('width', 0)}×{cam.get('height', 0)} @ {cam.get('fps', 0):.1f}fps | ⏱️ {cam.get('duration', 0):.1f}s | H.264")
-                    else:
-                        st.error(f"Stream unavailable: {vpath}")
+                if vpath and vpath_obj.exists():
+                    st.video(str(vpath_obj))
+                    st.caption(f"📐 {cam.get('width', 0)}×{cam.get('height', 0)} @ {cam.get('fps', 0):.1f}fps | ⏱️ {cam.get('duration', 0):.1f}s | H.264")
+                else:
+                    st.error(f"Stream unavailable: {vpath}")
+    else:
+        for i in range(0, len(cameras), 2):
+            cols = st.columns(2)
+            for j in range(2):
+                if i + j < len(cameras):
+                    cam = cameras[i + j]
+                    tracks = db.get_tracks_for_camera(cam['camera_id'])
+                    with cols[j]:
+                        st.markdown(f"""
+                        <div class="monitor-card">
+                            <div class="monitor-bar">
+                                <span class="monitor-title">🔴 {cam['camera_id']} // {cam['name']}</span>
+                                <span style="font-size:0.72rem;font-family:'JetBrains Mono';color:#10b981;font-weight:700;">
+                                    {len(tracks)} TRACKED ENTITIES
+                                </span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        vpath = cam.get("video_path", "")
+                        vpath_obj = Path(vpath)
+                        if not vpath_obj.is_absolute():
+                            vpath_obj = Path(__file__).parent / vpath
+
+                        if vpath and vpath_obj.exists():
+                            st.video(str(vpath_obj))
+                            st.caption(f"📐 {cam.get('width', 0)}×{cam.get('height', 0)} @ {cam.get('fps', 0):.1f}fps | ⏱️ {cam.get('duration', 0):.1f}s | H.264")
+                        else:
+                            st.error(f"Stream unavailable: {vpath}")
 
 
 # ── Sequential Multi-Camera Tracking Tab ───────────────────────────────────────

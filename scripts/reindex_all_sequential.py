@@ -48,12 +48,11 @@ def clean_state():
 
 
 def register_all_cameras():
-    print("\n--- 2. Registering 4 Sequential Cameras ---")
+    print("\n--- 2. Registering 3 CCTV Cameras ---")
     cams = [
-        ("CAM_01", "CAM 01 - North Highway Inbound", "data/videos/camera_01.mp4", "Wide-angle overview of highway sector with traffic, trucks, cars, and pedestrians"),
-        ("CAM_02", "CAM 02 - Gate 2 West Checkpoint", "data/videos/camera_02.mp4", "Telephoto zoomed reverse-angle checkpoint feed showing vehicles passing barrier lane"),
-        ("CAM_03", "CAM 03 - East Commercial Walkway", "data/videos/camera_03.mp4", "Commercial pedestrian corridor view showing pedestrians, shoppers, and walkway movement"),
-        ("CAM_04", "CAM 04 - Metro Central Intersection", "data/videos/camera_04.mp4", "High-contrast IR monochrome surveillance feed of central intersection cross-traffic"),
+        ("CAM_01", "Main Gate", "data/videos/camera_01.mp4", "Main gate surveillance camera"),
+        ("CAM_02", "Parking Area", "data/videos/camera_02.mp4", "Parking area surveillance camera"),
+        ("CAM_03", "Back Entrance", "data/videos/camera_03.mp4", "Back entrance surveillance camera"),
     ]
     for cid, name, vpath, desc in cams:
         info = register_video(cid, name, vpath, desc)
@@ -61,7 +60,7 @@ def register_all_cameras():
 
 
 def index_all_cameras():
-    print("\n--- 3. Running VideoIndexer on All 4 Cameras ---")
+    print("\n--- 3. Running VideoIndexer on All 3 Cameras ---")
     cams = db.get_all_cameras()
     for cam in cams:
         cid = cam["camera_id"]

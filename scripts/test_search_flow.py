@@ -9,7 +9,7 @@ def test_queries():
     parser = QueryParser()
     pipeline = RetrievalPipeline()
 
-    queries = ['find cars', 'show me people', 'find truck', 'motorcycle', 'blue car', 'yellow truck']
+    queries = ['find cars', 'show me people', 'motorcycle', 'find truck', 'green car']
     for q in queries:
         sq = parser.parse(q)
         results, clar = pipeline.search(sq, top_k=5)

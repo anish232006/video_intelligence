@@ -88,9 +88,7 @@ class RetrievalPipeline:
             structured_query.time_range or "all", max_secs
         )
 
-        # ── Step 3: SQL filter (resilient multi-stage) ───────────────────
-        # Note: Do not hard-filter by color in SQL — CLIP embedding and reranker
-        # handle color much better without false-negative dropouts.
+        # ── Step 3: SQL filter (strict class-aware) ──────────────────────
         filtered_tracks = db.get_tracks_filtered(
             camera_ids=resolved_cameras if resolved_cameras else None,
             class_name=structured_query.object_class,
@@ -99,13 +97,20 @@ class RetrievalPipeline:
             time_end=time_end,
         )
 
-        # Fallback 1: if class_name or time filtered out all tracks, relax them
-        if not filtered_tracks:
+        # If user specified time range and no tracks found, try relaxing time range first
+        if not filtered_tracks and (time_start is not None or time_end is not None):
             filtered_tracks = db.get_tracks_filtered(
                 camera_ids=resolved_cameras if resolved_cameras else None,
+                class_name=structured_query.object_class,
             )
 
-        # Fallback 2: if still no tracks, search all tracks
+        # CRITICAL: If user explicitly searched for an object class (e.g. truck, dog)
+        # and none exist in footage, DO NOT fall back to returning random cars/people!
+        if not filtered_tracks and structured_query.object_class:
+            logger.info("No tracks found matching requested class '%s'", structured_query.object_class)
+            return [], clarification_needed
+
+        # Fallback only when query didn't specify an explicit object class
         if not filtered_tracks:
             filtered_tracks = db.get_all_tracks()
 
@@ -204,6 +209,10 @@ class RetrievalPipeline:
                 explanation=explanation,
             ))
 
+        # Filter out candidates below minimum score threshold
+        min_threshold = 0.28 if structured_query.color_hints else 0.20
+        candidates = [c for c in candidates if c.rerank_score >= min_threshold]
+
         # Sort by rerank score
         candidates.sort(key=lambda r: r.rerank_score, reverse=True)
 
@@ -243,13 +252,18 @@ class RetrievalPipeline:
         """
         score = semantic_score * 0.50  # CLIP similarity is primary signal
 
-        # Color match bonus
+        # Color match bonus / mismatch penalty
         if structured_query.color_hints:
             color_score = color_similarity_score(
                 track.get("dominant_color"),
                 structured_query.color_hints,
             )
-            score += color_score * 0.20
+            if color_score > 0.0:
+                score += color_score * 0.30
+            else:
+                # If user specifically asked for a color (e.g. green) and this object is another color, penalize
+                if track.get("dominant_color"):
+                    score -= 0.35
 
         # Class match bonus
         if structured_query.object_class:
